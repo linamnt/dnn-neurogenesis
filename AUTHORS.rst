@@ -1,0 +1,13 @@
+=======
+Credits
+=======
+
+Maintainer
+----------
+
+* Lina M. Tran <>
+
+Contributors
+------------
+
+None yet. Why not be the first? See: CONTRIBUTING.rst
