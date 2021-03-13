@@ -37,12 +37,12 @@ with open(path.join(here, "requirements.txt")) as requirements_file:
 
 
 setup(
-    name="neurogenesis-dl",
+    name="dnn-neurogenesis",
     description="Python package for doing science.",
     long_description=readme,
     author="Lina M. Tran",
     author_email="",
-    url="https://github.com/linamnt/neurogenesis-dl",
+    url="https://github.com/linamnt/dnn-neurogenesis",
     python_requires=">={}".format(".".join(str(n) for n in min_version)),
     packages=find_packages(exclude=["docs", "tests"]),
     entry_points={
