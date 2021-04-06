@@ -320,7 +320,7 @@ def ablation(model, dataset, step=0.05):
 
 
 class NgnCnn(nn.Module):
-    def __init__(self, layer_size=250, channels=3, seed=0, excite=False):
+    def __init__(self, layer_size=250, channels=3, control=False, seed=0, excite=False):
         torch.manual_seed(seed)
         super(NgnCnn, self).__init__()
         # parameters
@@ -329,7 +329,11 @@ class NgnCnn(nn.Module):
         self.channels = channels
         self.excite = excite
         self.n_new = 0
-
+        self.control = False
+        if self.control:
+            self.idx_control = np.random.choice(
+                    range(layer_size), size=8, replace=False
+                )
         # 3@16x16
         self.conv1 = nn.Conv2d(channels, 16, 3, padding=1)
         self.conv2 = nn.Conv2d(16, 16, 3, padding=1)
@@ -380,9 +384,10 @@ class NgnCnn(nn.Module):
         for ix, fc in enumerate(self.fcs):
             x = F.relu(fc(x))
 
-            if self.excite and ix == 1 and self.n_new:# and self.training:
+            if self.excite and ix == 1 and self.n_new and self.training:
+                idx = self.idx_control if self.control else self.idx
                 excite_mask = torch.ones_like(x)
-                excite_mask[:, self.idx] = 1.3
+                excite_mask[:, idx] = 1.3
                 excite_mask.to(dev)
                 x = x * excite_mask
                 
@@ -430,7 +435,7 @@ class NgnCnn(nn.Module):
         if targeted_portion is not None:
             targ_diff = round(targeted_portion * current[layer].shape[0]) - n_new
             if targ_diff <= 0:
-                n_new = n_new + targ_diff - 2
+                n_new = n_new + targ_diff - 3
 
         self.n_new = n_new
         n_replace = n_new if replace else 0  # number lost

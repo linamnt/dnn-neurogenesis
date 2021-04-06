@@ -264,6 +264,7 @@ def train_model(
         model.train()
         if epoch >= end_neurogenesis:
             neurogenesis = False
+            model.excite=False
         for batch_idx, (x, target) in enumerate(loader):
             x, target = x.to(model.device), target.to(model.device)
             # zero the gradients, if they exist
@@ -326,7 +327,9 @@ class NgnMlp(nn.Module):
     for the purpose of studying impact of new neuron addition, or turnover.
     """
 
-    def __init__(self, dataset, layer_size=[250,250,500], dropout=0, control=False, excite=False, eval_mode=False, c10=False):
+    def __init__(self, dataset, layer_size=[250,250,500], dropout=0, 
+                 control=False, excite=False, excite_val=1.3, 
+                 eval_mode=False, c10=False):
         super(NgnMlp, self).__init__()
         self.relu = nn.ReLU()
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -335,9 +338,11 @@ class NgnMlp(nn.Module):
         self.control = control
         if self.control:
             self.idx_control = np.random.choice(np.arange(self.layer_size[1]), size=int(self.layer_size[1]*0.05), replace=False)
+
         # parameters
         self.new = 0  # number of new units
-        self.excite = excite  # excite proportion (excitability)
+        self.excite = excite  # excitability bool
+        self.excite_val = excite_val  # excitability proportion
         self.dropout = dropout  # dropout proportion
         self.lr_new = 1  # learning rate multiplier for new units
         self.eval_mode = eval_mode  # evaluate model using test set
@@ -386,20 +391,16 @@ class NgnMlp(nn.Module):
             if self.dropout:
                 x = F.dropout(x, p=self.dropout, training=self.training)
                 x = torch.renorm(x, 1, 1, 3) # max norm
-
             # if we've added new neurons + excite is True
-            if ix in self.modified_layers:
+            if ix in self.modified_layers and self.excite and self.training:
                 #increment = self.dg_size - self.new
                 idx = self.idx_control if self.control else self.idx
                 # if eval_mode is True, do no excite during forward pass if testing
-                if ((self.new * self.excite) > 0) & (
-                    self.training and not self.eval_mode
-                ):
-                    excite_mask = torch.ones_like(x)
-                    excite_mask[:, idx] = 1.3
-                    excite_mask.to(dev)
-                    x = x * excite_mask
-                    
+                excite_mask = torch.ones_like(x)
+                excite_mask[:, idx] = self.excite_val
+                excite_mask.to(self.device)
+                x = x * excite_mask
+                
             # return a layer's activations
             if ix == return_layer:
                 full_layer = x.clone()
@@ -411,7 +412,7 @@ class NgnMlp(nn.Module):
             return x
 
     def add_new(
-        self, pnew=0.01, excite=0, layers=[0], replace=True, targeted_portion=None,
+        self, pnew=0.01, layers=[0], replace=True, targeted_portion=None,
     ):
         """
         Neurons replaced randomly, or via targeted strategy. The new
@@ -431,12 +432,11 @@ class NgnMlp(nn.Module):
             n_new = pnew
         else:
             n_new = int(self.dg_size * pnew)
-        self.excite = excite
+        
 
         # add new neurons to hidden layer
         # get current weights as float tensors
-        if self.excite > 0:
-            self.modified_layers = layers
+        self.modified_layers = layers
 
         # in the case of replacement instead of additive
         if replace:

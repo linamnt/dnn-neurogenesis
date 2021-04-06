@@ -40,11 +40,12 @@ def targeted_neurogenesis(weights, n_replace, targeted_portion, is_training):
     # chose number of indices to remove of the output neurons
     idx = round(targeted_portion * weights_shape[0]) - 1
 
-    # when sorting the abs valued weights, take the index of the targeted portion to get a threshold
-    importance_threshold = torch.sort(importance)[0][-idx]
+    # when sorting the abs valued weights largest to smallest
+    # take the index of the targeted portion to get a threshold
+    importance_threshold = torch.sort(importance)[0][-idx] # TODO -idx
 
     # only weights below threshold will be set to None
-    unimportance_mask = importance > importance_threshold
+    unimportance_mask = importance > importance_threshold  #TODO > change < regular
 
     # during evaluation, only use important weights, without dropout threshold
     if not is_training:
