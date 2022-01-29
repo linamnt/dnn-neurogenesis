@@ -12,9 +12,3 @@ neurogenesis-dl
 Python package for doing science.
 
 * Free software: 3-clause BSD license
-* Documentation: (COMING SOON!) https://linamnt.github.io/neurogenesis-dl.
-
-Features
---------
-
-* TODO
