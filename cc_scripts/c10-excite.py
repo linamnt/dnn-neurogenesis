@@ -50,13 +50,11 @@ group_config = {
         "epochs": EPOCHS,
         "neurogenesis": NEUROGENESIS,
         "turnover": TURNOVER,
-       # "targeted_portion": TARGETED_PORTION,
         "frequency": FREQUENCY,
         "end_neurogenesis": 10,
         "early_stop": False,
         "optim_args":{
             "lr": LR,
-          #  "momentum": 0.8
         },
     },  
     "Control": {
@@ -65,7 +63,6 @@ group_config = {
         "early_stop": False, 
         "optim_args":{
             "lr": LR,
-          #  "momentum": 0.8
         }
     },
 }

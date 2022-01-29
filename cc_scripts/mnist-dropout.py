@@ -88,7 +88,7 @@ group_config = {
              "neurogenesis": 0,
              "early_stop": False,
          },
-         "optimizer_args": {"lr": LR, "weight_decay": 0.00001,},
+         "optimizer_args": {"lr": LR, "weight_decay": 0.0001,},
      },
    "Dropout": {
         "training_args": {
@@ -133,7 +133,7 @@ group_config = {
             "new_args": {"pnew": PNEW, "replace": True, "layers": [1],},
 
          },
-         "optimizer_args": {"lr": LR, "weight_decay": 0.00001,}
+         "optimizer_args": {"lr": LR, "weight_decay": 0.0001,}
      },
 }
 
