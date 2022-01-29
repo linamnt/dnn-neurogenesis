@@ -27,8 +27,7 @@ args = parser.parse_args()
 torch.manual_seed(23456)
 datatype = torch.float
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 20
-LEARNING_RATE = 0.0002
+BATCH_SIZE = 100
 # Number of trials per batch
 NUM_BATCH = 5  # TODO
 
@@ -101,19 +100,9 @@ def train_evaluation(parameters):
 
 search_space = SearchSpace(
     parameters=[
-        RangeParameter(  # TODO
+        RangeParameter(  
             name="epochs", lower=10, upper=20, parameter_type=ParameterType.INT
         ),
-        # FixedParameter(
-        #     name='lr',
-        #     value=0.0001,
-        #     parameter_type=ParameterType.FLOAT
-        # ),
-        # FixedParameter(
-        #     name='momentum',
-        #     value=0.8,
-        #     parameter_type=ParameterType.FLOAT
-        # )
         RangeParameter(
             name="momentum", lower=0, upper=1, parameter_type=ParameterType.FLOAT
         ),
