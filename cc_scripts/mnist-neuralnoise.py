@@ -5,12 +5,14 @@ Do networks with neurogenesis do better than networks with dropout?
 import neurodl.mlp as mlp
 import numpy as np
 import pandas as pd
+from neurodl.params_mlp import FREQUENCY
 import torch.nn as nn
 import torch.optim as optim
 from datetime import datetime
 import torch
 import argparse
 import copy
+from params_mlp import * 
 
 # file management
 import os
@@ -56,35 +58,30 @@ copyfile(os.path.realpath(__file__), RUNSCRIPTS_DIR / RUN_SCRIPT_NAME)
 
 # IMPORTANT PARAMETERS
 REPEATS = args.repeats
-EPOCHS =  35
-DROPOUT_EPOCHS = 65
-BATCH_SIZE = 100
-LR = 0.001
-dtype = torch.float
 
 group_config = {
      "Neurogenesis + Neural Noise": {
          "training_args": {
-             "opt_fn": optim.SGD,
-             "epochs": EPOCHS,  # TODO
+             "opt_fn": OPTIMIZER,
+             "epochs": EPOCHS,  
              "neurogenesis": True,
-             "freq": 500,
+             "freq": FREQUENCY,
              "new_args": {
-                 "pnew": 0.02,
+                 "pnew": PNEW,
                  "replace": True,
                  "layers": [1]},
              "early_stop": False,
          },
-         "optimizer_args": {"lr": LR,}# 'momentum': 0.8},
+         "optimizer_args": {"lr": LR,}
      },
     "Neural Noise": {
          "training_args": {
-             "opt_fn": optim.SGD,
-             "epochs": EPOCHS,  # TODO
+             "opt_fn": OPTIMIZER,
+             "epochs": EPOCHS,  
             "neurogenesis": False,
             "early_stop": False,
          },
-         "optimizer_args": {"lr": LR,}# 'momentum': 0.8'},
+         "optimizer_args": {"lr": LR,}
      },
 }
 
@@ -107,7 +104,7 @@ for repeat in range(REPEATS):
         net_copy = copy.deepcopy(net)
         net_copy.to(device)
         if group == "Neural Noise":
-            net_copy.neural_noise = (-0.2, 0.5)
+            net_copy.neural_noise =  NEURAL_NOISE
         criterion = nn.NLLLoss()
 
         parameters = group_config[group]["training_args"]

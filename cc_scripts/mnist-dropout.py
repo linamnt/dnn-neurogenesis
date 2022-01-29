@@ -5,12 +5,14 @@ Do networks with neurogenesis do better than networks with dropout?
 import neurodl.mlp as mlp
 import numpy as np
 import pandas as pd
+from neurodl.params_mlp import FREQUENCY
 import torch.nn as nn
 import torch.optim as optim
 from datetime import datetime
 import torch
 import argparse
 import copy
+from params_mlp import *
 
 # file management
 import os
@@ -56,98 +58,79 @@ copyfile(os.path.realpath(__file__), RUNSCRIPTS_DIR / RUN_SCRIPT_NAME)
 
 # IMPORTANT PARAMETERS
 REPEATS = args.repeats
-EPOCHS =  35
-DROPOUT_EPOCHS =85 
-BATCH_SIZE = 100
-LR = 0.05
-dtype = torch.float
 
 group_config = {
-#    "Neurogenesis": {
-#        "training_args": {
-#            "opt_fn": optim.SGD,
-#            "epochs": EPOCHS,
-#            "neurogenesis": True,
-#            "end_neurogenesis": 25,
-#            "early_stop": False,
-#            "freq": 200,
-#          #  "targeted_portion": 0.20,
-#            "new_args": {"pnew": 0.05, "replace": True, "layers": [1],},
-#        },
-#        "optimizer_args": {"lr": LR,}# 'momentum': 0.8},
-#    },
-#     "Control": {
-#         "training_args": {
-#             "opt_fn": optim.SGD,
-#             "epochs": EPOCHS, 
-#             "neurogenesis": 0,
-#             "early_stop": False,
-#         },
-#         "optimizer_args": {"lr": LR,}# 'momentum': 0.8},
-#     },
-#    "Excite": {
-#        "training_args": {
-#            "opt_fn": optim.SGD,
-#            "epochs": EPOCHS, 
-#            "neurogenesis": True,
-#            "end_neurogenesis": 15,
-#            "early_stop": False,
-#            "freq": 500,
-#          #  "targeted_portion": 0.20,
-#            "new_args": {"pnew": 0.05, "replace": True, "layers": [1],},
-#        },
-#        "optimizer_args": {"lr": LR,}# 'momentum': 0.8},
-#    },   
+   "Neurogenesis": {
+       "training_args": {
+           "opt_fn": OPTIMIZER,
+           "epochs": EPOCHS,
+           "neurogenesis": True,
+           "end_neurogenesis": 25,
+           "early_stop": False,
+           "freq": FREQUENCY,
+           "new_args": {"pnew": PNEW, "replace": True, "layers": [1],},
+       },
+       "optimizer_args": {"lr": LR,},
+   },
+    "Control": {
+        "training_args": {
+            "opt_fn": OPTIMIZER,
+            "epochs": EPOCHS, 
+            "neurogenesis": 0,
+            "early_stop": False,
+        },
+        "optimizer_args": {"lr": LR,},
+    },
     "Weight Decay": {
          "training_args": {
-             "opt_fn": optim.SGD,
+             "opt_fn": OPTIMIZER,
              "epochs": EPOCHS, 
              "neurogenesis": 0,
              "early_stop": False,
          },
-         "optimizer_args": {"lr": LR, "weight_decay": 0.00001,}# 'momentum': 0.8'},
+         "optimizer_args": {"lr": LR, "weight_decay": 0.00001,},
      },
-#    "Dropout": {
-#         "training_args": {
-#             "opt_fn": optim.SGD,
-#             "epochs": DROPOUT_EPOCHS, 
-#             "neurogenesis": 0,
-#             "early_stop": False,
-#         },
-#         "optimizer_args": {"lr": 0.01,}# 'momentum': 0.8},
-#    },
+   "Dropout": {
+        "training_args": {
+            "opt_fn": OPTIMIZER,
+            "epochs": DROPOUT_EPOCHS, 
+            "neurogenesis": 0,
+            "early_stop": False,
+        },
+        "optimizer_args": {"lr": 0.01,}
+   },
     "Neurogenesis + Dropout": {
         "training_args": {
-            "opt_fn": optim.Adam,
+            "opt_fn": OPTIMIZER,
             "epochs": DROPOUT_EPOCHS,  
             "neurogenesis": True,
             "early_stop": False,
-            "freq": 200,
-            "new_args": {"pnew": 0.02, "replace": True, "layers": [1]},
+            "freq": FREQUENCY,
+            "new_args": {"pnew": PNEW, "replace": True, "layers": [1]},
 
          },
-         "optimizer_args": {"lr": LR,}# 'momentum': 0.8},
+         "optimizer_args": {"lr": LR,}
     },
     "Neurogenesis + Neural Noise": {
         "training_args": {
-            "opt_fn": optim.Adam,
+            "opt_fn": OPTIMIZER,
             "epochs": EPOCHS, 
             "neurogenesis": True,
             "early_stop": False,
-            "freq": 200,
-            "new_args": {"pnew": 0.02, "replace": True, "layers": [1],},
+            "freq": FREQUENCY,
+            "new_args": {"pnew": PNEW, "replace": True, "layers": [1],},
 
          },
-         "optimizer_args": {"lr": LR,}# 'momentum': 0.8},
+         "optimizer_args": {"lr": LR,}
     },
     "Neurogenesis + Weight Decay": {
          "training_args": {
-             "opt_fn": optim.SGD,
+             "opt_fn": OPTIMIZER,
              "epochs": EPOCHS,  
             "neurogenesis": True,
             "early_stop": False,
-            "freq": 200,
-            "new_args": {"pnew": 0.02, "replace": True, "layers": [1],},
+            "freq": FREQUENCY,
+            "new_args": {"pnew": PNEW, "replace": True, "layers": [1],},
 
          },
          "optimizer_args": {"lr": LR, "weight_decay": 0.00001,}
@@ -175,8 +158,8 @@ for repeat in range(REPEATS):
         net_copy.to(device)
         if "Dropout" in group:
             net_copy.dropout = 0.2
-        if "Neural Noise" in group:
-            net_copy.neural_noise = (-0.2, 0.5)
+        if "Neural Noise" in group and "Dropout in Group":
+            net_copy.neural_noise = NEURAL_NOISE
             net_copy.dropout = 0.1
         if group == "Neurogenesis":
             net_copy.excite = False
