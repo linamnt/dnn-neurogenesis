@@ -1,5 +1,4 @@
 import os
-import os
 from shutil import copyfile
 import torch
 import numpy as np
@@ -21,17 +20,17 @@ parser.add_argument(
     "-n", "--neurons", help="number of neurons per layer", type=int, default=250
 )
 parser.add_argument(
-    "-t", "--trials", help="number of trials for ax to train", type=int, 
-    default=5
+    "-t", "--trials", help="number of trials for ax to train", type=int, default=10
 )
 args = parser.parse_args()
 
 torch.manual_seed(23456)
 datatype = torch.float
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 4
+BATCH_SIZE = 20
 LEARNING_RATE = 0.0002
-
+# Number of trials per batch
+NUM_BATCH = 5  # TODO
 
 START_TIME = datetime.now().isoformat(timespec="minutes")
 
@@ -46,7 +45,7 @@ RUNSCRIPTS_DIR.mkdir(exist_ok=True)
 EXP_RESULTS = RESULTS_DIR / "results"
 EXP_RESULTS.mkdir(exist_ok=True)
 
-run_script_name = f"adam-hpt-runscript-{START_TIME}.py"
+run_script_name = f"sgd-hpt-{START_TIME}.py"
 
 print("Ax HPT Experiment runscript written to:", RUNSCRIPTS_DIR / run_script_name)
 copyfile(os.path.realpath(__file__), RUNSCRIPTS_DIR / run_script_name)
@@ -69,28 +68,27 @@ def train(net, optimizer, criterion, parameters):
         model=net,
         opt_fn=optimizer,
         epochs=epochs,
-        early_stop=False,
         criterion=criterion,
         opt_args=opt_args,
+        early_stop=False,
     )
     return
 
 
-def evaluate(net, criterion):
-    return mlp.predict(net=net, criterion=criterion, test=False)
+def evaluate(model, criterion):
+    return mlp.predict(net=model, criterion=criterion, test=True)
 
 
 def train_evaluation(parameters):
     nfolds = 3  # TODO
     results = np.zeros(nfolds)
-
     criterion = nn.NLLLoss()
 
     for i in range(nfolds):
         net = mlp.NgnMlp(data_loader, layer_size=args.neurons, hidden=2)
         net.to(DEVICE)
 
-        optimizer = optim.Adam
+        optimizer = optim.SGD
 
         train(
             net, optimizer, criterion, parameters,
@@ -103,17 +101,29 @@ def train_evaluation(parameters):
 
 search_space = SearchSpace(
     parameters=[
+        RangeParameter(  # TODO
+            name="epochs", lower=10, upper=20, parameter_type=ParameterType.INT
+        ),
+        # FixedParameter(
+        #     name='lr',
+        #     value=0.0001,
+        #     parameter_type=ParameterType.FLOAT
+        # ),
+        # FixedParameter(
+        #     name='momentum',
+        #     value=0.8,
+        #     parameter_type=ParameterType.FLOAT
+        # )
         RangeParameter(
-            name="epochs", lower=10, upper=25, parameter_type=ParameterType.INT
+            name="momentum", lower=0, upper=1, parameter_type=ParameterType.FLOAT
         ),
         RangeParameter(
             name="lr",
-            lower=0.0001,
-            upper=0.001,
+            lower=0.000001,
+            upper=1,
             log_scale=True,
             parameter_type=ParameterType.FLOAT,
         ),
-        # FixedParameter(name="lr", value=0.00055, parameter_type=ParameterType.FLOAT,),
     ]
 )
 
@@ -128,13 +138,11 @@ experiment = SimpleExperiment(
 
 sobol = Models.SOBOL(search_space=experiment.search_space, experiment=experiment,)
 
-# Number of trials per batch
-NUM_BATCH = 5  # TODO
 
 print("Running initial SOBOL trials.")
 
 experiment.new_batch_trial(generator_run=sobol.gen(NUM_BATCH))
-save_name = str(EXP_RESULTS / f"exp-bo-mlp-adam-{START_TIME}.json")
+save_name = str(EXP_RESULTS / f"exp-bo-mlp-sgd-{START_TIME}.json")
 
 for i in range(args.trials):
     print(
