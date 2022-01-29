@@ -404,8 +404,6 @@ class NgnCnn(nn.Module):
             x = fc(x)
             if self.neural_noise is not None and ix == 0 and self.training:
                 mean, std = self.neural_noise
-                # noise = torch.log_normal(mean=mean, std=std,
-                #                     size=x.size(), device=dev)
                 noise = torch.zeros_like(x, device=dev)
                 noise = noise.log_normal_(mean=mean, std=std)
                 x = x * noise

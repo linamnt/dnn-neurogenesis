@@ -506,10 +506,6 @@ class NgnMlp(nn.Module):
                 current[i + 1] = np.delete(current[i + 1], idx, axis=1)
                 bias[i] = np.delete(bias[i], idx)
 
-            # concatenate old and new neurons
-            #new_wi = torch.cat([current[i], hl_input], dim=0)
-            #new_wo = torch.cat([current[i + 1], hl_output], dim=1)
-
             # put back current bias and weights into newly initialized layers
             hl_input[:-n_new, :] = current[i]
             hl_output[:, :-n_new] = current[i+1]
