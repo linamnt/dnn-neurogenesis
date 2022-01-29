@@ -73,13 +73,6 @@ group_config = {
         "early_stop": False,
         "lr": LR,
     },
-    "Dropout": {"epochs": EPOCHS, "neurogenesis": 0, "early_stop": False, "lr": LR,},
-     "Weight Decay": {"epochs": EPOCHS, "neurogenesis": 0, "early_stop": False,
-         "optim_args": {"lr": LR,"weight_decay": 0.00005},
-         },
-    "Control": {"epochs": EPOCHS, "neurogenesis": 0, "early_stop": False, "lr": LR,},
-
-
 }
 
 
