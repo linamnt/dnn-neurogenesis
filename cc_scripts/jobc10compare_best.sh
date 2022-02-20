@@ -22,7 +22,7 @@ tar -xf ~/data/cifar10.tar -C $SLURM_TMPDIR/data
 # identify and run script
 SCRIPT=c10-compare-best.py # script should take as an argument the data path
 
-python $SOURCEDIR/$SCRIPT -d $SLURM_TMPDIR/data -s $SOURCEDIR -n 250 -e 15
+python $SOURCEDIR/$SCRIPT -d $SLURM_TMPDIR/data -s $SOURCEDIR -n 250 -e 14
 echo date
 # echo "Task ID: $SLURM_ARRAY_TASK_ID"
 
