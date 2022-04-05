@@ -63,8 +63,7 @@ TURNOVER = True
 NEUROGENESIS = 8
 
 group_config = {
-        "Control": {"epochs": EPOCHS, "neurogenesis": 0, "early_stop": False, "lr": LR,},
-    "Neurogenesis": {
+    "Excite": {
         "epochs": EPOCHS,
         "neurogenesis": NEUROGENESIS,
         "turnover": TURNOVER,
@@ -73,7 +72,35 @@ group_config = {
         "early_stop": False,
         "lr": LR,
     },
-    "Dropout": {"epochs": EPOCHS, "neurogenesis": 0, "early_stop": False, "lr": LR,},         
+   "Control": {"epochs": EPOCHS, "neurogenesis": 0, "early_stop": False, "lr": LR,},
+   "Neural Noise + Dropout": {
+       "epochs": EPOCHS+7,
+       "neurogenesis": 0,
+       "early_stop": False, 
+       "optim_args": {"lr": LR,},
+       },
+     "Weight Decay + Neural Noise": {
+       "epochs": EPOCHS,
+       "neurogenesis": 0,
+       "early_stop": False, 
+       "optim_args": {"lr": LR, "weight_decay": 0.00001},
+       },
+     "Neurogenesis + Weight Decay": {
+       "epochs": EPOCHS,
+       "neurogenesis": NEUROGENESIS,
+       "early_stop": False, 
+       "turnover": TURNOVER,
+       "frequency": FREQUENCY,
+       "end_neurogenesis": 10,
+       "optim_args": {"lr": LR, "weight_decay": 0.00001},
+       },
+     "Weight Decay + Dropout": {
+        "epochs": EPOCHS+7,
+        "neurogenesis": 0,
+        "early_stop": False, 
+        "optim_args": {"lr": LR, "weight_decay": 0.00001},
+        },
+         
 }
 
 

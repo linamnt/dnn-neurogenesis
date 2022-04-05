@@ -1,3 +1,4 @@
+from ast import Index
 import numpy as np
 from scipy import stats
 import torch
@@ -208,9 +209,13 @@ def train_model(
             batch_neurogenesis = True
         else:
             epoch_neurogenesis = True
+    idx_list = set()
 
+    if excite is not None and excite > 0:
+        model.excite = excite
     for epoch in range(epochs):  # loop over the dataset multiple times
         model.train()
+
         if epoch >= end_neurogenesis:
             epoch_neurogenesis = False
             batch_neurogenesis = False
@@ -218,7 +223,8 @@ def train_model(
         for i, data in enumerate(dataset.train, 0):
             if batch_neurogenesis:
                 if (epoch % frequency) == 0:
-                    model.add_new(neurogenesis, turnover, targeted_portion, layer=layer)
+                    ngn_idx = model.add_new(neurogenesis, turnover, targeted_portion, layer=layer, return_idx=True)
+                    idx_list.update(ngn_idx)
             # get the inputs
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
@@ -240,9 +246,9 @@ def train_model(
             prediction = predict(model, dataset, False, get_loss=False)
 
         log[epoch] = prediction["Accuracy"][0]
-
         if epoch_neurogenesis:
-            model.add_new(neurogenesis, turnover, targeted_portion, layer=layer)
+            idx = model.add_new(neurogenesis, turnover, targeted_portion, layer=layer, return_idx=True)
+            idx_list.append(idx)
             if not turnover:  # add new parameters
                 optimizer.add_param_group(
                     {
@@ -304,6 +310,41 @@ def predict(model, dataset, valid=False, train=False, device=dev, get_loss=False
 
     #    return accuracy, avg_loss
     return {"Loss": (avg_loss, sem_loss), "Accuracy": (accuracy, sem_accuracy)}
+
+def error_types(model, dataset, device=dev):
+    correct = []
+    total = 0
+    losses = []
+
+    model.eval()
+    # use the correct dataset
+
+    loader = dataset.test
+
+
+    predictions, actual = [], []
+
+    with torch.no_grad():
+        for data in loader:
+            images, labels = data
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+
+            # calculate accuracy (do not use softmax)
+            _, predicted = torch.max(outputs.data, 1)
+            actual.append(labels.cpu().numpy())
+            predictions.append(predicted.cpu().numpy())
+
+    return np.array(list(zip(predictions, actual))).T
+
+
+def ablate_targetted(model, dataset, indices):
+    model.ablate = True
+    model.ablate_indices = indices
+    model.ablation_mode = "targetted"
+    acc = predict(model, dataset)
+    result = acc["Accuracy"][0]
+    return result
 
 
 def ablation(model, dataset, mode="random", step=0.05):
@@ -386,7 +427,7 @@ class NgnCnn(nn.Module):
         )
         self.fc3 = nn.Linear(self.layer_size, 10, bias=False)
 
-    def forward(self, x):
+    def forward(self, x, extract_layer=None):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = self.pool(x)
@@ -422,18 +463,20 @@ class NgnCnn(nn.Module):
 
             # for ablation experiments
             if self.ablate:
-                activation_size = x.size()[1]
-                ablate_size = int(self.ablation_prop * activation_size)
-                if self.ablation_mode == "random":
-                    indices = np.random.choice(
-                        range(activation_size),
-                        size=size,
-                        replace=False,
-                    )
-                if self.ablation_mode == "targetted":
-                    importance = torch.norm(fc.weight.detach().clone(), p=1, dim=1)
-                    indices = torch.argsort(importance, descending=True)[:ablate_size]
-                x[:, indices] = 0
+                if ix == 1:
+                    activation_size = x.size()[1]
+                    if self.ablation_mode == "random":
+                        ablate_size = int(self.ablation_prop * activation_size)
+                        indices = np.random.choice(
+                            range(activation_size),
+                            size=size,
+                            replace=False,
+                        )
+                    if self.ablation_mode == "targetted":
+                        indices = self.ablate_indices
+                    x[:, indices] = 0
+            if extract_layer == ix:
+                return x
         x = self.fc3(x)
 
         return x
@@ -455,6 +498,8 @@ class NgnCnn(nn.Module):
         # get a copy of current parameters
         bias = [ix.bias.detach().clone().cpu() for ix in self.fcs]
         current = [ix.weight.detach().clone().cpu() for ix in self.fcs]
+        if layer == 2:
+            current_fc3 = self.fc3.weight.detach().clone().cpu()
 
         # how many neurons to add?
         if not p_new:
@@ -506,7 +551,11 @@ class NgnCnn(nn.Module):
                 # delete idx neurons from bias and current weights (middle layer)
                 bias[1] = np.delete(bias[1], idx)
                 current[layer] = np.delete(current[layer], idx, axis=0)
-                current[layer + 1] = np.delete(current[layer + 1], idx, axis=1)
+                try:
+                    current[layer + 1] = np.delete(current[layer + 1], idx, axis=1)
+                except IndexError:
+                    current_fc3 = np.delete(current_fc3, idx, axis=1)
+
 
             self.idx = idx
 
@@ -516,10 +565,16 @@ class NgnCnn(nn.Module):
             current[layer].shape[1],
         )
         b_in = torch.Tensor(self.layer_size)
-        w_out = torch.Tensor(
-            current[layer + 1].shape[0],
-            self.layer_size,
-        )
+        if layer < 2:
+            w_out = torch.Tensor(
+                current[layer + 1].shape[0],
+                self.layer_size,
+            )
+        elif layer == 2:
+            w_out = torch.Tensor(
+                current_fc3.shape[0],
+                self.layer_size,
+            )
 
         # initialize new weights
         nn.init.kaiming_uniform_(w_in, a=math.sqrt(5))
@@ -533,18 +588,23 @@ class NgnCnn(nn.Module):
         # put back current bias and weights into newly initiliazed layers
         b_in[:-n_new] = bias[1]
         w_in[:-n_new, :] = current[layer]
-        w_out[:, :-n_new] = current[layer + 1]
+        if layer == 2:
+            w_out[:, :-n_new] = current_fc3
+        else:
+            w_out[:, :-n_new] = current[layer + 1]
 
         # create the parameters again
-        #            self.fcs[1] = nn.Linear(current[layer].shape[1], self.layer_size)
-        #            self.fcs[2] = nn.Linear(self.layer_size, current[layer+1].shape[0])
         self.fcs[layer].bias = nn.Parameter(b_in)
         self.fcs[layer].weight = nn.Parameter(w_in)
-        self.fcs[layer + 1].weight = nn.Parameter(w_out)  # nn.Parameter(w_out)
-        #            self.fcs[2].bias = nn.Parameter(bias[2])
+        if layer == 2:
+            self.fc3.weight = nn.Parameter(w_out)
+        else:
+            self.fcs[layer + 1].weight = nn.Parameter(w_out)
 
         # need to send all the data to GPU again
         self.fcs.to(dev)
+        if layer == 2:
+            self.fc3.to(dev)
 
         if return_idx and (n_replace > 0):
             return idx

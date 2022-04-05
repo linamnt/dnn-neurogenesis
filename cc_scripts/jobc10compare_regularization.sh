@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=compare_best
-#SBATCH --time=1-08:30            # days-hh:mm
+#SBATCH --job-name=compare_regularization
+#SBATCH --time=2-08:30            # days-hh:mm
 #
 #SBATCH --cpus-per-task=16        # Cores per GPU: Cedar - 6, Graham - 16
 #SBATCH --gres=gpu:t4:1             #Request GPU "generic resources"
@@ -20,7 +20,7 @@ mkdir $SLURM_TMPDIR/data
 tar -xf ~/data/cifar10.tar -C $SLURM_TMPDIR/data
 
 # identify and run script
-SCRIPT=c10-compare-best.py # script should take as an argument the data path
+SCRIPT=c10-compare-regularization.py # script should take as an argument the data path
 
 python $SOURCEDIR/$SCRIPT -d $SLURM_TMPDIR/data -s $SOURCEDIR -n 250 -e 15
 echo date

@@ -46,14 +46,14 @@ RUNSCRIPTS_DIR.mkdir(exist_ok=True)
 EXP_RESULTS = RESULTS_DIR / "results"
 EXP_RESULTS.mkdir(exist_ok=True)
 
-run_script_name = f"c10-compare-best-{START_TIME}.py"
+run_script_name = f"c10-weights-{START_TIME}.py"
 
 # save a copy of the runscript
 print("Runscript written to:", RUNSCRIPTS_DIR / run_script_name)
 copyfile(os.path.realpath(__file__), RUNSCRIPTS_DIR / run_script_name)
 
 # IMPORTANT PARAMETERS
-REPEATS = args.repeats
+REPEATS = 1
 EPOCHS = args.epochs
 BATCH_SIZE = 4
 FREQUENCY = 640
@@ -73,33 +73,39 @@ group_config = {
         "early_stop": False,
         "lr": LR,
     },
-    "Dropout": {"epochs": EPOCHS, "neurogenesis": 0, "early_stop": False, "lr": LR,},         
+    "Dropout": {"epochs": EPOCHS+7, "neurogenesis": 0, "early_stop": False, "lr": LR,},
+
 }
 
 
 
 results = pd.DataFrame(
-    index=range(REPEATS * len(group_config)),
-    columns= [
-        "Group", "Train Accuracy", "Test Accuracy", "Repeat"
-        ],
+    index=range(REPEATS * len(group_config) * 200 ),
+    columns= list(range(250)) + ['Label', 'Group']
 )
 
 counter = 0
 
+def sim_matrix(a, b, eps=1e-8):
+    """
+    added eps for numerical stability
+    """
+    a_n, b_n = a.norm(dim=1)[:, None], b.norm(dim=1)[:, None]
+    a_norm = a / torch.max(a_n, eps * torch.ones_like(a_n))
+    b_norm = b / torch.max(b_n, eps * torch.ones_like(b_n))
+    sim_mt = torch.mm(a_norm, b_norm.transpose(0, 1))
+    return sim_mt
 
 # DATASET
-data_loader = cnn.Cifar10_data(mode="test", batch_size=BATCH_SIZE)
+data_loader = cnn.Cifar10_data(mode="test", batch_size=4)
 
 for i in range(REPEATS):
     print(f"Running trial {i+1}/{REPEATS}")
     net = cnn.NgnCnn(args.neurons, seed=i)
-    for group in group_config:
+    for group_num, group in enumerate(group_config):
         net_copy = copy.deepcopy(net)
         if "Dropout" in group:
             net_copy.dropout = 0.2
-        if "Neural Noise" in group:
-            net_copy.neural_noise = (-0.2,0.5)
         net_copy.to(device)
         parameters = group_config[group]
         log, _ = cnn.train_model(
@@ -110,21 +116,28 @@ for i in range(REPEATS):
             **parameters,
         )
 
-        accuracy = cnn.predict(net_copy, data_loader, device=device, valid=False)
-        train_accuracy = cnn.predict(net_copy, data_loader, train=True)
-        print(group, accuracy)
-        results.iloc[counter] = [group, train_accuracy["Accuracy"][0],
-                                       accuracy["Accuracy"][0], i]
+        loader = data_loader.test
+        data = [(img, lbl) for img, lbl in loader]
+        reps = np.zeros([200,250])
+        labels = np.zeros(200)
+        for ix in range(50):
+            images, labels = data[i]
+            images = images.to(device)
+            outputs = net_copy(images, extract_layer=1)
+            outputs = outputs.cpu().detach().numpy()
+            print(outputs.shape)
+            results.iloc[group_num*200+ix*4:group_num*200+ix*4+4,0:250] = outputs
+            results.iloc[group_num*200+ix*4:group_num*200+ix*4+4,250] = labels
+            results.iloc[group_num*200+ix*4:group_num*200+ix*4+4,251] = [group]*4
 
-        counter += 1
+        results.to_csv(
+                EXP_RESULTS
+                / "c10-selectivity-{}.csv".format(START_TIME)
+            )
+
 
 
 results.to_csv(
     EXP_RESULTS
-    / "c10compare_best_params-{}-{}-{}-{}.csv".format(
-        START_TIME, NEUROGENESIS, FREQUENCY, TURNOVER
-    )
+    / "c10-selectivity-{}.csv".format(START_TIME)
 )
-print("Average Accuracy")
-print(results.groupby("Group")["Test Accuracy"].mean())
-print("Done")
